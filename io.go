@@ -1,5 +1,6 @@
 package pdbhandler
 
-func Hello() string {
-	return "Hello, i'm a package"
+// ReadPDB reads a PDB file and returns a PDB struct
+func ReadPDB(f string) error {
+	return nil
 }
