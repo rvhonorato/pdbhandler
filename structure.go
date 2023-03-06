@@ -3,11 +3,11 @@ package pdbhandler
 
 type PDB struct {
 	ID    string
-	Model map[string]Model
+	Model map[int]Model
 }
 
 type Model struct {
-	ID    string
+	ID    int
 	Chain map[string]Chain
 }
 

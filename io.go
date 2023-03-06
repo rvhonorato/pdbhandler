@@ -15,50 +15,71 @@ import (
 // ReadPDBFile reads a PDB file and returns a PDB object.
 func ReadPDBFile(f string) PDB {
 
-	p := PDB{}
-
 	// Check if the file exists
 	if !FileExists(f) {
-		glog.Infof("file %s does not exist", f)
-		return p
+		glog.Error("file %s does not exist", f)
+		return PDB{}
 	}
 
 	// Check if the file is a PDB file
 	if !IsPDBFile(f) {
-		glog.Infof("file %s is not a PDB file", f)
-		return p
+		glog.Error("file %s is not a PDB file", f)
+		return PDB{}
 	}
+
+	// TODO: Check if the PDB is valid
+	// if !IsValidPDB(f) {
+	// 	glog.Infof("file %s is not a valid PDB file", f)
+	// 	return PDB{}
+	// }
 
 	// read the pdb file
 	readFile, err := os.Open(f)
-
 	if err != nil {
-		fmt.Println(err)
+		glog.Error(err)
+		return PDB{}
 	}
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
 
-	c := Chain{
-		Residue: make(map[int]Residue),
+	// Initialize the PDB struct
+	p := PDB{
+		ID:    f,
+		Model: make(map[int]Model),
 	}
+
+	// Compile the regex
 	r := regexp.MustCompile(ATOMREGEX)
+
+	// Loop through the file
 	for fileScanner.Scan() {
 		line := fileScanner.Text()
-		m := r.FindStringSubmatch(line)
-		if len(m) == 0 {
+
+		// TODO: Implement something here to find out the model number
+		modelNumber := 1
+		// ------------------------------
+
+		// Check if the line matches the ATOM regex
+		match := r.FindStringSubmatch(line)
+		if len(match) == 0 {
+			// If the line does not match the ATOM regex,
+			//  skip to the next line
 			continue
 		}
-		// Populate the Atom struct
-		atomNumber, _ := strconv.Atoi(strings.Trim(m[1], " "))
-		atomName := strings.Trim(m[2], " ")
-		altLoc := m[3]
-		resName := m[4]
-		// chainID := m[5]
-		resNumber, _ := strconv.Atoi(strings.Trim(m[6], " "))
-		iCode := m[7]
-		x, _ := strconv.ParseFloat(strings.Trim(m[8], " "), 64)
-		y, _ := strconv.ParseFloat(strings.Trim(m[9], " "), 64)
-		z, _ := strconv.ParseFloat(strings.Trim(m[10], " "), 64)
+
+		// Extract the matching groups
+		atomNumber, _ := strconv.Atoi(strings.Trim(match[1], " "))
+		atomName := strings.Trim(match[2], " ")
+		altLoc := match[3]
+		resName := match[4]
+		chainID := match[5]
+		resNumber, _ := strconv.Atoi(strings.Trim(match[6], " "))
+		iCode := match[7]
+		x, _ := strconv.ParseFloat(strings.Trim(match[8], " "), 64)
+		y, _ := strconv.ParseFloat(strings.Trim(match[9], " "), 64)
+		z, _ := strconv.ParseFloat(strings.Trim(match[10], " "), 64)
+
+		// Populate the atom struct
 		atom := Atom{
 			AtomName: atomName,
 			AltLoc:   altLoc,
@@ -68,29 +89,42 @@ func ReadPDBFile(f string) PDB {
 			Z:        z,
 		}
 
-		_, ok := c.Residue[resNumber]
+		// Populate the model struct
+		_, ok := p.Model[modelNumber]
 		if !ok {
-			c.Residue[resNumber] = Residue{
+			p.Model[modelNumber] = Model{
+				ID:    modelNumber,
+				Chain: make(map[string]Chain),
+			}
+		}
+
+		// Populate the chain struct
+		_, ok = p.Model[modelNumber].Chain[chainID]
+		if !ok {
+			p.Model[modelNumber].Chain[chainID] = Chain{
+				ID:      chainID,
+				Residue: make(map[int]Residue),
+			}
+		}
+
+		// Populate the residue struct
+		_, ok = p.Model[modelNumber].Chain[chainID].Residue[resNumber]
+		if !ok {
+			p.Model[modelNumber].Chain[chainID].Residue[resNumber] = Residue{
 				ResNumber: resNumber,
 				ResName:   resName,
 				Atom:      make(map[int]Atom),
 			}
 		}
 
-		c.Residue[resNumber].Atom[atomNumber] = atom
+		// Populate the atom struct
+		p.Model[modelNumber].Chain[chainID].Residue[resNumber].Atom[atomNumber] = atom
 
 	}
 	_ = readFile.Close()
 
-	fmt.Println(c)
-
-	// p = PDB{
-	// 	Model: make(map[string]Model),
-	// }
-	// p.Model["1"] = Model{
-	// 	Chain: make(map[string]Chain),
-	// }
-	// p.Model["1"].Chain["A"] = c
+	fmt.Println(p.Model[1].Chain["A"].Residue[42])
+	// return p
 
 	return PDB{}
 }
