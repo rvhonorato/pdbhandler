@@ -5,6 +5,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 )
@@ -34,19 +37,60 @@ func ReadPDBFile(f string) PDB {
 	}
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
-	var fileLines []string
 
+	c := Chain{
+		Residue: make(map[int]Residue),
+	}
+	r := regexp.MustCompile(ATOMREGEX)
 	for fileScanner.Scan() {
 		line := fileScanner.Text()
-		fmt.Println(line)
-		// fileLines = append(fileLines, fileScanner.Text())
-	}
+		m := r.FindStringSubmatch(line)
+		if len(m) == 0 {
+			continue
+		}
+		// Populate the Atom struct
+		atomNumber, _ := strconv.Atoi(strings.Trim(m[1], " "))
+		atomName := strings.Trim(m[2], " ")
+		altLoc := m[3]
+		resName := m[4]
+		// chainID := m[5]
+		resNumber, _ := strconv.Atoi(strings.Trim(m[6], " "))
+		iCode := m[7]
+		x, _ := strconv.ParseFloat(strings.Trim(m[8], " "), 64)
+		y, _ := strconv.ParseFloat(strings.Trim(m[9], " "), 64)
+		z, _ := strconv.ParseFloat(strings.Trim(m[10], " "), 64)
+		atom := Atom{
+			AtomName: atomName,
+			AltLoc:   altLoc,
+			ICode:    iCode,
+			X:        x,
+			Y:        y,
+			Z:        z,
+		}
 
-	readFile.Close()
+		_, ok := c.Residue[resNumber]
+		if !ok {
+			c.Residue[resNumber] = Residue{
+				ResNumber: resNumber,
+				ResName:   resName,
+				Atom:      make(map[int]Atom),
+			}
+		}
 
-	for _, line := range fileLines {
-		fmt.Println(line)
+		c.Residue[resNumber].Atom[atomNumber] = atom
+
 	}
+	_ = readFile.Close()
+
+	fmt.Println(c)
+
+	// p = PDB{
+	// 	Model: make(map[string]Model),
+	// }
+	// p.Model["1"] = Model{
+	// 	Chain: make(map[string]Chain),
+	// }
+	// p.Model["1"].Chain["A"] = c
 
 	return PDB{}
 }

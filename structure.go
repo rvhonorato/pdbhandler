@@ -1,28 +1,32 @@
-// structure.go contains the struct of a PDB file.
+// structure.go contains the struct and methods of a PDB file.
 package pdbhandler
 
 type PDB struct {
-	Model []Model
+	ID    string
+	Model map[string]Model
 }
 
 type Model struct {
-	Chain []Chain
+	ID    string
+	Chain map[string]Chain
 }
 
 type Chain struct {
-	Residue []Residue
+	ID      string
+	Residue map[int]Residue
 }
 
 type Residue struct {
-	Atom []Atom
+	ResNumber int
+	ResName   string
+	Atom      map[int]Atom
 }
 
 type Atom struct {
 	AtomName string
-	AtomType string
-	AtomNum  int
+	AltLoc   string
 	ResName  string
-	ResNum   int
+	ICode    string
 	X        float64
 	Y        float64
 	Z        float64
