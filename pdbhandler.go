@@ -1,5 +1,5 @@
 package pdbhandler
 
-func ReadPDBFile() {
-	// read the pdb file
-}
+// func ReadPDBFile() {
+// 	// read the pdb file
+// }
