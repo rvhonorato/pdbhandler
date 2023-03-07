@@ -3,7 +3,7 @@ package pdbhandler
 
 import (
 	"bufio"
-	"fmt"
+	"errors"
 	"os"
 	"regexp"
 	"strconv"
@@ -12,26 +12,13 @@ import (
 	"github.com/golang/glog"
 )
 
+var (
+	ATOMREGEXP  = regexp.MustCompile(ATOM_RECORD_REGEX)
+	MODELREGEXP = regexp.MustCompile(MODEL_RECORD_REGEX)
+)
+
 // ReadPDBFile reads a PDB file and returns a PDB object.
 func ReadPDBFile(f string) PDB {
-
-	// Check if the file exists
-	if !FileExists(f) {
-		glog.Error("file %s does not exist", f)
-		return PDB{}
-	}
-
-	// Check if the file is a PDB file
-	if !IsPDBFile(f) {
-		glog.Error("file %s is not a PDB file", f)
-		return PDB{}
-	}
-
-	// TODO: Check if the PDB is valid
-	// if !IsValidPDB(f) {
-	// 	glog.Infof("file %s is not a valid PDB file", f)
-	// 	return PDB{}
-	// }
 
 	// read the pdb file
 	readFile, err := os.Open(f)
@@ -44,87 +31,128 @@ func ReadPDBFile(f string) PDB {
 
 	// Initialize the PDB struct
 	p := PDB{
-		ID:    f,
+		Name:  f,
 		Model: make(map[int]Model),
 	}
 
 	// Compile the regex
-	r := regexp.MustCompile(ATOMREGEX)
+	// atomR := regexp.MustCompile(ATOMREGEX)
+	// modelR := regexp.MustCompile(MODELREGEX)
 
 	// Loop through the file
+	currentModel := 1
 	for fileScanner.Scan() {
 		line := fileScanner.Text()
 
-		// TODO: Implement something here to find out the model number
-		modelNumber := 1
-		// ------------------------------
+		modelNb, err := parseModelLine(line)
+		if err == nil {
+			currentModel = modelNb
+		}
 
-		// Check if the line matches the ATOM regex
-		match := r.FindStringSubmatch(line)
-		if len(match) == 0 {
-			// If the line does not match the ATOM regex,
-			//  skip to the next line
+		// ------------------------------
+		atom, err := ParseAtomLine(line)
+		if err != nil {
 			continue
 		}
 
-		// Extract the matching groups
-		atomNumber, _ := strconv.Atoi(strings.Trim(match[1], " "))
-		atomName := strings.Trim(match[2], " ")
-		altLoc := match[3]
-		resName := match[4]
-		chainID := match[5]
-		resNumber, _ := strconv.Atoi(strings.Trim(match[6], " "))
-		iCode := match[7]
-		x, _ := strconv.ParseFloat(strings.Trim(match[8], " "), 64)
-		y, _ := strconv.ParseFloat(strings.Trim(match[9], " "), 64)
-		z, _ := strconv.ParseFloat(strings.Trim(match[10], " "), 64)
-
-		// Populate the atom struct
-		atom := Atom{
-			AtomName: atomName,
-			AltLoc:   altLoc,
-			ICode:    iCode,
-			X:        x,
-			Y:        y,
-			Z:        z,
-		}
-
 		// Populate the model struct
-		_, ok := p.Model[modelNumber]
+		_, ok := p.Model[currentModel]
 		if !ok {
-			p.Model[modelNumber] = Model{
-				ID:    modelNumber,
-				Chain: make(map[string]Chain),
+			p.Model[currentModel] = Model{
+				Number: currentModel,
+				Chain:  make(map[string]Chain),
 			}
 		}
 
 		// Populate the chain struct
-		_, ok = p.Model[modelNumber].Chain[chainID]
+		_, ok = p.Model[currentModel].Chain[atom.Chain]
 		if !ok {
-			p.Model[modelNumber].Chain[chainID] = Chain{
-				ID:      chainID,
+			p.Model[currentModel].Chain[atom.Chain] = Chain{
+				ID:      atom.Chain,
 				Residue: make(map[int]Residue),
 			}
 		}
 
 		// Populate the residue struct
-		_, ok = p.Model[modelNumber].Chain[chainID].Residue[resNumber]
+		_, ok = p.Model[currentModel].Chain[atom.Chain].Residue[atom.ResNumber]
 		if !ok {
-			p.Model[modelNumber].Chain[chainID].Residue[resNumber] = Residue{
-				ResNumber: resNumber,
-				ResName:   resName,
+			p.Model[currentModel].Chain[atom.Chain].Residue[atom.ResNumber] = Residue{
+				ResNumber: atom.ResNumber,
+				ResName:   atom.ResName,
 				Atom:      make(map[int]Atom),
 			}
 		}
 
 		// Populate the atom struct
-		p.Model[modelNumber].Chain[chainID].Residue[resNumber].Atom[atomNumber] = atom
+		p.Model[currentModel].Chain[atom.Chain].Residue[atom.ResNumber].Atom[atom.AtomNumber] = atom
 
 	}
 	_ = readFile.Close()
 
-	fmt.Println(p.Model[1].Chain["A"].Residue[42])
-	// return p
+	return p
 
-	return PDB{}
+}
+
+// ParseAtomLine parses an ATOM line and returns an Atom struct.
+func ParseAtomLine(line string) (Atom, error) {
+
+	// Check if the line matches the ATOM regex
+	atomMatch := ATOMREGEXP.FindStringSubmatch(line)
+	if len(atomMatch) == 0 {
+		// If the line does not match the ATOM regex,
+		//  skip to the next line
+		err := errors.New("line does not match ATOM regex")
+		return Atom{}, err
+	}
+
+	// Extract the matching groups
+	atomNumber, _ := strconv.Atoi(strings.Trim(atomMatch[1], " "))
+	atomName := strings.Trim(atomMatch[2], " ")
+	altLoc := atomMatch[3]
+	resName := atomMatch[4]
+	chainID := atomMatch[5]
+	resNumber, _ := strconv.Atoi(strings.Trim(atomMatch[6], " "))
+	iCode := atomMatch[7]
+	x, _ := strconv.ParseFloat(strings.Trim(atomMatch[8], " "), 64)
+	y, _ := strconv.ParseFloat(strings.Trim(atomMatch[9], " "), 64)
+	z, _ := strconv.ParseFloat(strings.Trim(atomMatch[10], " "), 64)
+	occup, _ := strconv.ParseFloat(strings.Trim(atomMatch[11], " "), 64)
+	temp, _ := strconv.ParseFloat(strings.Trim(atomMatch[12], " "), 64)
+	element := atomMatch[13]
+	charge := atomMatch[14]
+
+	// Populate the atom struct
+	atom := Atom{
+		AtomNumber: atomNumber,
+		AtomName:   atomName,
+		AltLoc:     altLoc,
+		ResName:    resName,
+		Chain:      chainID,
+		ResNumber:  resNumber,
+		ICode:      iCode,
+		X:          x,
+		Y:          y,
+		Z:          z,
+		Occup:      occup,
+		Temp:       temp,
+		Element:    element,
+		Charge:     charge,
+	}
+
+	return atom, nil
+
+}
+
+// parseModelLine parses a MODEL line and returns the model number.
+func parseModelLine(line string) (int, error) {
+
+	modelMatch := MODELREGEXP.FindStringSubmatch(line)
+	if len(modelMatch) == 0 {
+		err := errors.New("line does not match MODEL regex")
+		return 0, err
+	}
+
+	modelNumber, _ := strconv.Atoi(strings.Trim(modelMatch[1], " "))
+
+	return modelNumber, nil
 }

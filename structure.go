@@ -2,13 +2,13 @@
 package pdbhandler
 
 type PDB struct {
-	ID    string
+	Name  string
 	Model map[int]Model
 }
 
 type Model struct {
-	ID    int
-	Chain map[string]Chain
+	Number int
+	Chain  map[string]Chain
 }
 
 type Chain struct {
@@ -23,11 +23,18 @@ type Residue struct {
 }
 
 type Atom struct {
-	AtomName string
-	AltLoc   string
-	ResName  string
-	ICode    string
-	X        float64
-	Y        float64
-	Z        float64
+	AtomNumber int
+	AtomName   string
+	AltLoc     string
+	ResName    string
+	Chain      string
+	ResNumber  int
+	ICode      string
+	X          float64
+	Y          float64
+	Z          float64
+	Occup      float64
+	Temp       float64
+	Element    string
+	Charge     string
 }
