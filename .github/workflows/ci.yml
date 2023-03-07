@@ -1,0 +1,24 @@
+name: unittests
+
+env:
+  CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-go@v3
+
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v ./... -coverprofile=coverage.out
+
+      - name: Run codacy-coverage-reporter
+        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r coverage.out
